@@ -7,6 +7,7 @@ import userRoute from "./routes/user.route.js";
 import companyRoute from "./routes/company.route.js";
 import jobRoute from "./routes/job.route.js";
 import applicationRoute from "./routes/application.route.js";
+import { fileURLToPath } from "node:url";
 
 dotenv.config({});
 
@@ -22,6 +23,11 @@ const corsOptions = {
 }
 
 app.use(cors(corsOptions));
+app.use("/uploads", express.static(fileURLToPath(new URL("./uploads/", import.meta.url)), {
+    dotfiles: "deny",
+    index: false,
+    maxAge: "1h"
+}));
 
 const PORT = process.env.PORT || 3000;
 
