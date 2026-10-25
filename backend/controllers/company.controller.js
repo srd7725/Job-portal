@@ -1,6 +1,18 @@
 import { Company } from "../models/company.model.js";
 import getDataUri from "../utils/datauri.js";
 import cloudinary from "../utils/cloudinary.js";
+import { mkdir, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const companyLogoDirectory = fileURLToPath(new URL("../uploads/companies/", import.meta.url));
+const logoExtensions = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif"
+};
 
 export const registerCompany = async (req, res) => {
     try {
@@ -13,10 +25,18 @@ export const registerCompany = async (req, res) => {
         }
         let company = await Company.findOne({ name: companyName });
         if (company) {
+            if (company.userId.toString() === req.id) {
+                return res.status(200).json({
+                    message: "This company is already registered.",
+                    company,
+                    success: true
+                });
+            }
+
             return res.status(400).json({
-                message: "You can't register same company.",
+                message: "A company with this name is already registered.",
                 success: false
-            })
+            });
         };
         company = await Company.create({
             name: companyName,
@@ -29,7 +49,19 @@ export const registerCompany = async (req, res) => {
             success: true
         })
     } catch (error) {
-        console.log(error);
+        console.error("Company registration failed:", error);
+
+        if (error?.code === 11000 && error.keyPattern?.name) {
+            return res.status(409).json({
+                message: "A company with this name is already registered.",
+                success: false
+            });
+        }
+
+        return res.status(500).json({
+            message: "Unable to register the company right now.",
+            success: false
+        });
     }
 }
 export const getCompany = async (req, res) => {
@@ -81,19 +113,38 @@ export const updateCompany = async (req, res) => {
         if (website !== undefined) updateData.website = website;
         if (location !== undefined) updateData.location = location;
 
-        // Upload logo only if a file is provided
         if (req.file) {
             const fileUri = getDataUri(req.file);
 
-            if (!fileUri?.content) {
+            if (!fileUri?.content || !logoExtensions[req.file.mimetype]) {
                 return res.status(400).json({
                     message: "Invalid logo file.",
                     success: false
                 });
             }
 
-            const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
-            updateData.logo = cloudResponse.secure_url;
+            const cloudinaryConfigured = [
+                process.env.CLOUD_NAME,
+                process.env.API_KEY,
+                process.env.API_SECRET,
+            ].every(Boolean);
+
+            if (cloudinaryConfigured) {
+                try {
+                    const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+                    updateData.logo = cloudResponse.secure_url;
+                } catch (error) {
+                    console.error("Company logo upload failed:", error);
+                }
+            }
+
+            if (!updateData.logo) {
+                const filename = `${randomUUID()}${logoExtensions[req.file.mimetype]}`;
+                await mkdir(companyLogoDirectory, { recursive: true });
+                await writeFile(join(companyLogoDirectory, filename), req.file.buffer, { flag: "wx" });
+                const backendUrl = process.env.BACKEND_URL?.replace(/\/+$/, "") || `${req.protocol}://${req.get("host")}`;
+                updateData.logo = `${backendUrl}/uploads/companies/${filename}`;
+            }
         }
 
         const company = await Company.findByIdAndUpdate(
@@ -111,7 +162,6 @@ export const updateCompany = async (req, res) => {
                 success: false
             });
         }
-
         return res.status(200).json({
             message: "Company information updated.",
             company,
@@ -120,6 +170,13 @@ export const updateCompany = async (req, res) => {
 
     } catch (error) {
         console.log(error);
+
+        if (error?.code === 11000 && error.keyPattern?.name) {
+            return res.status(409).json({
+                message: "A company with this name already exists.",
+                success: false
+            });
+        }
 
         return res.status(500).json({
             message: "Internal server error",
