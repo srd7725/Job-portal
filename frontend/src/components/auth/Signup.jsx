@@ -155,6 +155,9 @@ const Signup = () => {
                             />
                         </div>
                     </div>
+                    <p className="text-xs leading-5 text-slate-500">
+                        Super Admin access is restricted and cannot be created through public signup.
+                    </p>
                     {
                         loading ? <Button className="w-full my-4"> <Loader2 className='mr-2 h-4 w-4 animate-spin' /> Please wait </Button> : <Button type="submit" className="w-full my-4">Signup</Button>
                     }

@@ -28,6 +28,7 @@ const CompaniesTable = () => {
                     <TableRow>
                         <TableHead>Logo</TableHead>
                         <TableHead>Name</TableHead>
+                        <TableHead>Verification</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                     </TableRow>
@@ -35,13 +36,22 @@ const CompaniesTable = () => {
                 <TableBody>
                     {
                         filterCompany?.map((company) => (
-                            <tr>
+                            <tr key={company._id}>
                                 <TableCell>
                                     <Avatar>
                                         <AvatarImage src={company.logo}/>
                                     </Avatar>
                                 </TableCell>
                                 <TableCell>{company.name}</TableCell>
+                                <TableCell>
+                                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
+                                        (company.moderationStatus || "approved") === "approved"
+                                            ? "bg-emerald-50 text-emerald-700"
+                                            : company.moderationStatus === "rejected"
+                                                ? "bg-rose-50 text-rose-700"
+                                                : "bg-amber-50 text-amber-700"
+                                    }`}>{company.moderationStatus || "approved"}</span>
+                                </TableCell>
                                 <TableCell>{company.createdAt.split("T")[0]}</TableCell>
                                 <TableCell className="text-right cursor-pointer">
                                     <Popover>

@@ -1,4 +1,5 @@
 import { Job } from "../models/job.model.js";
+import { Company } from "../models/company.model.js";
 
 // admin post krega job
 export const postJob = async (req, res) => {
@@ -12,6 +13,13 @@ export const postJob = async (req, res) => {
                 success: false
             })
         };
+        const company = await Company.findOne({ _id: companyId, userId, moderationStatus: { $ne: "rejected" } });
+        if (!company) {
+            return res.status(400).json({
+                message: "Select one of your registered companies that is not rejected.",
+                success: false
+            });
+        }
         const job = await Job.create({
             title,
             description,
@@ -22,7 +30,8 @@ export const postJob = async (req, res) => {
             experienceLevel: experience,
             position,
             company: companyId,
-            created_by: userId
+            created_by: userId,
+            moderationStatus: "pending"
         });
         return res.status(201).json({
             message: "New job created successfully.",
@@ -38,22 +47,37 @@ export const getAllJobs = async (req, res) => {
     try {
         const keyword = req.query.keyword || "";
         const query = {
-            $or: [
-                { title: { $regex: keyword, $options: "i" } },
-                { description: { $regex: keyword, $options: "i" } },
+            $and: [
+                {
+                    $or: [
+                        { title: { $regex: keyword, $options: "i" } },
+                        { description: { $regex: keyword, $options: "i" } },
+                    ]
+                },
+                {
+                    $or: [
+                        { moderationStatus: "approved" },
+                        { moderationStatus: { $exists: false } }
+                    ]
+                }
             ]
         };
         const jobs = await Job.find(query).populate({
-            path: "company"
+            path: "company",
+            match: {
+                $or: [
+                    { moderationStatus: "approved" },
+                    { moderationStatus: { $exists: false } }
+                ]
+            }
+        }).populate({
+            path: "created_by",
+            match: { isBlocked: { $ne: true } },
+            select: "_id"
         }).sort({ createdAt: -1 });
-        if (!jobs) {
-            return res.status(404).json({
-                message: "Jobs not found.",
-                success: false
-            })
-        };
+        const approvedJobs = jobs.filter((job) => job.company && job.created_by);
         return res.status(200).json({
-            jobs,
+            jobs: approvedJobs,
             success: true
         })
     } catch (error) {
@@ -64,9 +88,31 @@ export const getAllJobs = async (req, res) => {
 export const getJobById = async (req, res) => {
     try {
         const jobId = req.params.id;
-        const job = await Job.findById(jobId).populate({
-            path:"applications"
+        const job = await Job.findOne({
+            _id: jobId,
+            $or: [
+                { moderationStatus: "approved" },
+                { moderationStatus: { $exists: false } }
+            ]
+        }).populate({
+            path: "created_by",
+            match: { isBlocked: { $ne: true } },
+            select: "fullname role"
+        }).populate({
+            path:"company",
+            match: {
+                $or: [
+                    { moderationStatus: "approved" },
+                    { moderationStatus: { $exists: false } }
+                ]
+            }
         });
+        if (job && (!job.company || !job.created_by)) {
+            return res.status(404).json({
+                message: "Job not found.",
+                success: false
+            });
+        }
         if (!job) {
             return res.status(404).json({
                 message: "Jobs not found.",

@@ -39,6 +39,12 @@ export const register = async (req, res) => {
     let savedPhoto;
     try {
         const { fullname, email, phoneNumber, password, role } = req.body || {};
+        if (!["student", "recruiter"].includes(role)) {
+            return res.status(400).json({
+                message: "Please select a valid account type.",
+                success: false
+            });
+        }
         const requiredFields = { fullname, email, phoneNumber, password, role };
         const missingFields = Object.entries(requiredFields)
             .filter(([, value]) => !value || (typeof value === "string" && !value.trim()))
@@ -114,6 +120,12 @@ export const login = async (req, res) => {
                 message: "Incorrect email or password.",
                 success: false,
             })
+        }
+        if (user.isBlocked) {
+            return res.status(403).json({
+                message: "This account has been blocked. Contact support for assistance.",
+                success: false
+            });
         }
         const isPasswordMatch = await bcrypt.compare(password, user.password);
         if (!isPasswordMatch) {

@@ -93,7 +93,31 @@ export const applyJob = async (req, res) => {
         }
 
         // check if the jobs exists
-        const job = await Job.findById(jobId);
+        const job = await Job.findOne({
+            _id: jobId,
+            $or: [
+                { moderationStatus: "approved" },
+                { moderationStatus: { $exists: false } }
+            ]
+        }).populate({
+            path: "company",
+            match: {
+                $or: [
+                    { moderationStatus: "approved" },
+                    { moderationStatus: { $exists: false } }
+                ]
+            }
+        }).populate({
+            path: "created_by",
+            match: { isBlocked: { $ne: true } },
+            select: "_id"
+        });
+        if (job && (!job.company || !job.created_by)) {
+            return res.status(404).json({
+                message: "Job is not available.",
+                success: false
+            });
+        }
         if (!job) {
             return res.status(404).json({
                 message: "Job not found",

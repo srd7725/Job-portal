@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Loader2 } from 'lucide-react';
+import ReportDialog from './ReportDialog';
 
 const JobDescription = () => {
     const {singleJob} = useSelector(store => store.job);
@@ -99,7 +100,7 @@ const JobDescription = () => {
 
     return (
         <div className='max-w-7xl mx-auto my-10'>
-            <div className='flex items-center justify-between'>
+            <div className='flex items-center justify-between gap-4'>
                 <div>
                     <h1 className='font-bold text-xl'>{singleJob?.title}</h1>
                     <div className='flex items-center gap-2 mt-4'>
@@ -108,12 +109,17 @@ const JobDescription = () => {
                         <Badge className={'text-[#7209b7] font-bold'} variant="ghost">{singleJob?.salary}LPA</Badge>
                     </div>
                 </div>
-                <Button
-                onClick={handleApplyClick}
-                    disabled={isApplied}
-                    className={`rounded-lg ${isApplied ? 'bg-gray-600 cursor-not-allowed' : 'bg-[#7209b7] hover:bg-[#5f32ad]'}`}>
-                    {isApplied ? 'Already Applied' : 'Apply Now'}
-                </Button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    {user && ["student", "recruiter"].includes(user.role) && singleJob?.created_by?._id !== user._id && (
+                        <ReportDialog jobId={singleJob?._id} userId={singleJob?.created_by?._id} />
+                    )}
+                    <Button
+                        onClick={handleApplyClick}
+                        disabled={isApplied}
+                        className={`rounded-lg ${isApplied ? 'bg-gray-600 cursor-not-allowed' : 'bg-[#7209b7] hover:bg-[#5f32ad]'}`}>
+                        {isApplied ? 'Already Applied' : 'Apply Now'}
+                    </Button>
+                </div>
             </div>
             <Dialog open={applicationDialogOpen} onOpenChange={(open) => {
                 setApplicationDialogOpen(open);

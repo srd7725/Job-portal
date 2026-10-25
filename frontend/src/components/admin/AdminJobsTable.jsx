@@ -31,6 +31,7 @@ const AdminJobsTable = () => {
                     <TableRow>
                         <TableHead>Company Name</TableHead>
                         <TableHead>Role</TableHead>
+                        <TableHead>Review status</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                     </TableRow>
@@ -38,9 +39,18 @@ const AdminJobsTable = () => {
                 <TableBody>
                     {
                         filterJobs?.map((job) => (
-                            <tr>
+                            <tr key={job._id}>
                                 <TableCell>{job?.company?.name}</TableCell>
                                 <TableCell>{job?.title}</TableCell>
+                                <TableCell>
+                                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
+                                        (job.moderationStatus || "approved") === "approved"
+                                            ? "bg-emerald-50 text-emerald-700"
+                                            : job.moderationStatus === "rejected"
+                                                ? "bg-rose-50 text-rose-700"
+                                                : "bg-amber-50 text-amber-700"
+                                    }`}>{job.moderationStatus || "approved"}</span>
+                                </TableCell>
                                 <TableCell>{job?.createdAt.split("T")[0]}</TableCell>
                                 <TableCell className="text-right cursor-pointer">
                                     <Popover>

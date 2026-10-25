@@ -40,7 +40,8 @@ export const registerCompany = async (req, res) => {
         };
         company = await Company.create({
             name: companyName,
-            userId: req.id
+            userId: req.id,
+            moderationStatus: "pending"
         });
 
         return res.status(201).json({
@@ -86,7 +87,7 @@ export const getCompany = async (req, res) => {
 export const getCompanyById = async (req, res) => {
     try {
         const companyId = req.params.id;
-        const company = await Company.findById(companyId);
+        const company = await Company.findOne({ _id: companyId, userId: req.id });
         if (!company) {
             return res.status(404).json({
                 message: "Company not found.",
@@ -147,8 +148,8 @@ export const updateCompany = async (req, res) => {
             }
         }
 
-        const company = await Company.findByIdAndUpdate(
-            req.params.id,
+        const company = await Company.findOneAndUpdate(
+            { _id: req.params.id, userId: req.id },
             updateData,
             {
                 returnDocument: "after",
