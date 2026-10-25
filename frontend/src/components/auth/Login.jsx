@@ -38,7 +38,7 @@ const Login = () => {
             });
             if (res.data.success) {
                 dispatch(setUser(res.data.user));
-                navigate("/");
+                navigate(res.data.user.role === "superadmin" ? "/super-admin" : "/");
                 toast.success(res.data.message);
             }
         } catch (error) {
@@ -105,8 +105,25 @@ const Login = () => {
                                 />
                                 <Label htmlFor="r2">Recruiter</Label>
                             </div>
+                            <div className="flex items-center space-x-2">
+                                <Input
+                                    id="r3"
+                                    type="radio"
+                                    name="role"
+                                    value="superadmin"
+                                    checked={input.role === 'superadmin'}
+                                    onChange={changeEventHandler}
+                                    className="cursor-pointer"
+                                />
+                                <Label htmlFor="r3">Super Admin</Label>
+                            </div>
                         </RadioGroup>
                     </div>
+                    {input.role === "superadmin" && (
+                        <p className="mb-3 -mt-2 text-xs leading-5 text-slate-500">
+                            Super Admin accounts are created securely by the portal owner. This option only signs in to an existing admin account; it does not create one.
+                        </p>
+                    )}
                     {
                         loading ? <Button className="w-full my-4"> <Loader2 className='mr-2 h-4 w-4 animate-spin' /> Please wait </Button> : <Button type="submit" className="w-full my-4">Login</Button>
                     }

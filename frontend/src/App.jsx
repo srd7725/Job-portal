@@ -1,5 +1,4 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
-import Navbar from './components/shared/Navbar'
 import Login from './components/auth/Login'
 import Signup from './components/auth/Signup'
 import Home from './components/Home'
@@ -14,6 +13,8 @@ import AdminJobs from "./components/admin/AdminJobs";
 import PostJob from './components/admin/PostJob'
 import Applicants from './components/admin/Applicants'
 import ProtectedRoute from './components/admin/ProtectedRoute'
+import SuperAdminDashboard from './components/super-admin/SuperAdminDashboard'
+import SuperAdminRoute from './components/super-admin/SuperAdminRoute'
 
 
 const appRouter = createBrowserRouter([
@@ -44,6 +45,10 @@ const appRouter = createBrowserRouter([
   {
     path: "/profile",
     element: <Profile />
+  },
+  {
+    path: "/super-admin",
+    element: <SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>
   },
   // admin ke liye yha se start hoga
   {

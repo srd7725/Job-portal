@@ -47,6 +47,11 @@ const jobSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Application',
         }
-    ]
+    ],
+    moderationStatus:{
+        type:String,
+        enum:['pending','approved','rejected'],
+        default:'approved'
+    }
 },{timestamps:true});
 export const Job = mongoose.model("Job", jobSchema);

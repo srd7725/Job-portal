@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import { APPLICATION_API_END_POINT } from '@/utils/constant';
 import axios from 'axios';
+import ReportDialog from '../ReportDialog';
 
 const shortlistingStatus = ["Accepted", "Rejected"];
 
@@ -35,6 +36,7 @@ const ApplicantsTable = () => {
                         <TableHead>City</TableHead>
                         <TableHead>Experience (years)</TableHead>
                         <TableHead>Resume</TableHead>
+                        <TableHead>Report</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                     </TableRow>
@@ -53,6 +55,9 @@ const ApplicantsTable = () => {
                                     {item?.resumeUrl || item?.applicant?.profile?.resume
                                         ? <a className="text-blue-600 cursor-pointer" href={item?.resumeUrl || item?.applicant?.profile?.resume} target="_blank" rel="noopener noreferrer">{item?.resumeOriginalName || item?.applicant?.profile?.resumeOriginalName || "View resume"}</a>
                                         : <span>NA</span>}
+                                </TableCell>
+                                <TableCell>
+                                    {item?.applicant?._id && <ReportDialog userId={item.applicant._id} />}
                                 </TableCell>
                                 <TableCell>{item?.createdAt?.split("T")[0] || item?.applicant?.createdAt?.split("T")[0] || "NA"}</TableCell>
                                 <TableCell className="float-right cursor-pointer">

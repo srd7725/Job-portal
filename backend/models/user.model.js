@@ -20,8 +20,12 @@ const userSchema = new mongoose.Schema({
     },
     role:{
         type:String,
-        enum:['student','recruiter'],
+        enum:['student','recruiter','superadmin'],
         required:true
+    },
+    isBlocked:{
+        type:Boolean,
+        default:false
     },
     profile:{
         bio:{type:String},
