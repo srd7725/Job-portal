@@ -4,3 +4,5 @@ export const APPLICATION_API_END_POINT="http://localhost:8000/api/v1/application
 export const COMPANY_API_END_POINT="http://localhost:8000/api/v1/company";
 export const ADMIN_API_END_POINT="http://localhost:8000/api/v1/admin";
 export const REPORT_API_END_POINT="http://localhost:8000/api/v1/reports";
+export const AI_API_END_POINT="http://localhost:8000/api/v1/ai";
+export const EDUCATION_API_END_POINT="http://localhost:8000/api/v1/education";

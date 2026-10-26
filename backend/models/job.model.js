@@ -52,6 +52,12 @@ const jobSchema = new mongoose.Schema({
         type:String,
         enum:['pending','approved','rejected'],
         default:'approved'
+    },
+    maxPreferredEducationGapMonths: {
+        type: Number,
+        min: 0,
+        max: 1200,
+        default: null
     }
 },{timestamps:true});
 export const Job = mongoose.model("Job", jobSchema);

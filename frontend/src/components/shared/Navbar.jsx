@@ -33,12 +33,12 @@ const Navbar = () => {
     }
     return (
         <div className='bg-white'>
-            <div className='flex items-center justify-between mx-auto max-w-7xl h-16'>
+            <div className='mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-2'>
                 <div>
                     <h1 className='text-2xl font-bold'>Job<span className='text-[#F83002]'>Portal</span></h1>
                 </div>
                 <div className='flex items-center gap-5'>
-                    <ul className='flex font-medium items-center gap-5'>
+                    <ul className='flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm font-medium lg:gap-5'>
                         {
                             user && user.role === 'superadmin' ? (
                                 <li><Link to="/super-admin">Admin Dashboard</Link></li>
@@ -46,12 +46,15 @@ const Navbar = () => {
                                 <>
                                     <li><Link to="/admin/companies">Companies</Link></li>
                                     <li><Link to="/admin/jobs">Jobs</Link></li>
+                                    <li><Link to="/admin/ai-screening">AI Screening</Link></li>
                                 </>
                             ) : (
                                 <>
                                     <li><Link to="/">Home</Link></li>
                                     <li><Link to="/jobs">Jobs</Link></li>
                                     <li><Link to="/browse">Browse</Link></li>
+                                    {user?.role === "student" && <li><Link to="/student/mock-interview">Mock Interview</Link></li>}
+                                    {user?.role === "student" && <li><Link to="/student/education">Education</Link></li>}
                                 </>
                             )
                         }
