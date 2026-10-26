@@ -16,6 +16,21 @@ const emptyEntry = () => ({
     status: "completed"
 });
 
+const monthValue = (value) => {
+    if (!value) return "";
+    const match = String(value).match(/^(\d{4}-\d{2})/);
+    return match ? match[1] : "";
+};
+
+const formEntry = (entry = {}) => ({
+    qualification: entry.qualification || "",
+    institution: entry.institution || "",
+    startDate: monthValue(entry.startDate),
+    endDate: monthValue(entry.endDate),
+    completionYear: entry.completionYear ?? "",
+    status: entry.status === "ongoing" ? "ongoing" : "completed"
+});
+
 const EducationTimeline = () => {
     const [entries, setEntries] = useState([]);
     const [confirmed, setConfirmed] = useState(false);
@@ -29,7 +44,7 @@ const EducationTimeline = () => {
         axios.get(`${EDUCATION_API_END_POINT}/timeline`, { withCredentials: true })
             .then(({ data }) => {
                 const timeline = data.timeline;
-                setEntries(timeline.entries || []);
+                setEntries((timeline.entries || []).map(formEntry));
                 setConfirmed(Boolean(timeline.confirmed));
                 setGapExplanation(timeline.gapExplanation || "");
                 setGapAnalysis(timeline.gapAnalysis || { gaps: [], confirmedMonths: null, hasPossibleGap: false });
@@ -39,9 +54,12 @@ const EducationTimeline = () => {
     }, []);
 
     const setEntry = (index, field, value) => {
-        setEntries((current) => current.map((entry, itemIndex) => itemIndex === index
-            ? { ...entry, [field]: value }
-            : entry));
+        setEntries((current) => current.map((entry, itemIndex) => {
+            if (itemIndex !== index) return entry;
+            const next = { ...entry, [field]: value };
+            if (field === "status" && value === "ongoing") next.endDate = "";
+            return next;
+        }));
         setConfirmed(false);
         setGapAnalysis({ gaps: [], confirmedMonths: null, hasPossibleGap: true });
     };
@@ -56,12 +74,7 @@ const EducationTimeline = () => {
         setSaving(true);
         try {
             const response = await axios.post(`${EDUCATION_API_END_POINT}/analyze`, data, { withCredentials: true });
-            setEntries(response.data.entries.map((entry) => ({
-                ...entry,
-                startDate: entry.startDate ? entry.startDate.slice(0, 7) : "",
-                endDate: entry.endDate ? entry.endDate.slice(0, 7) : "",
-                completionYear: entry.completionYear || ""
-            })));
+            setEntries(response.data.entries.map(formEntry));
             setGapAnalysis(response.data.gapAnalysis);
             setConfirmed(false);
             toast.success("Review the extracted education details before confirming them.");
@@ -75,12 +88,20 @@ const EducationTimeline = () => {
     const save = async (event) => {
         event.preventDefault();
         setSaving(true);
-        const normalized = entries.map((entry) => ({
-            ...entry,
-            startDate: entry.startDate || null,
-            endDate: entry.endDate || null,
-            completionYear: entry.completionYear ? Number(entry.completionYear) : null
-        }));
+        const normalized = entries.map((entry) => {
+            const startDate = monthValue(entry.startDate) || null;
+            const endDate = entry.status === "ongoing" ? null : (monthValue(entry.endDate) || null);
+            return {
+                qualification: String(entry.qualification || "").trim(),
+                institution: String(entry.institution || "").trim(),
+                startDate,
+                endDate,
+                completionYear: entry.completionYear === "" || entry.completionYear == null
+                    ? null
+                    : Number(entry.completionYear),
+                status: entry.status
+            };
+        });
         try {
             const response = await axios.put(`${EDUCATION_API_END_POINT}/timeline`, {
                 entries: normalized,
@@ -88,7 +109,7 @@ const EducationTimeline = () => {
                 gapExplanation
             }, { withCredentials: true });
             setGapAnalysis(response.data.timeline.gapAnalysis);
-            setEntries(response.data.timeline.entries || []);
+            setEntries((response.data.timeline.entries || []).map(formEntry));
             toast.success("Education timeline saved.");
         } catch (error) {
             toast.error(error.response?.data?.message || "Unable to save your education timeline.");
@@ -138,10 +159,10 @@ const EducationTimeline = () => {
                                                 <Input maxLength={160} value={entry.institution || ""} onChange={(event) => setEntry(index, "institution", event.target.value)} />
                                             </label>
                                             <label className="space-y-1 text-sm">Start month
-                                                <Input type="month" value={entry.startDate ? String(entry.startDate).slice(0, 7) : ""} onChange={(event) => setEntry(index, "startDate", event.target.value)} />
+                                                <Input type="month" value={monthValue(entry.startDate)} onChange={(event) => setEntry(index, "startDate", event.target.value)} />
                                             </label>
                                             <label className="space-y-1 text-sm">End month
-                                                <Input type="month" value={entry.endDate ? String(entry.endDate).slice(0, 7) : ""} onChange={(event) => setEntry(index, "endDate", event.target.value)} disabled={entry.status === "ongoing"} />
+                                                <Input type="month" value={entry.status === "ongoing" ? "" : monthValue(entry.endDate)} onChange={(event) => setEntry(index, "endDate", event.target.value)} disabled={entry.status === "ongoing"} />
                                             </label>
                                             <label className="space-y-1 text-sm">Completion year (if known)
                                                 <Input type="number" min="1900" max="2200" value={entry.completionYear || ""} onChange={(event) => setEntry(index, "completionYear", event.target.value)} />

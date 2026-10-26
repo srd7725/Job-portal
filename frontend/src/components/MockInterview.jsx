@@ -13,6 +13,9 @@ const INITIAL_SETUP = {
     experienceLevel: "Fresher",
     durationMinutes: "10"
 };
+const isMcqQuestion = (question) =>
+    question?.questionType === "mcq" || (Array.isArray(question?.options) && question.options.length === 4);
+
 const JOB_ROLES = [
     "Full Stack Developer",
     "Frontend Developer",
@@ -179,7 +182,7 @@ const MockInterview = () => {
                     <div className="mb-6">
                         <p className="text-sm font-semibold uppercase tracking-wide text-violet-700">Practice studio</p>
                         <h1 className="mt-1 text-2xl font-bold text-slate-900">AI Mock Interview</h1>
-                        <p className="mt-2 text-sm text-slate-600">Build confidence with role-specific questions and constructive practice feedback.</p>
+                        <p className="mt-2 text-sm text-slate-600">Practice with multiple-choice questions matched to your difficulty level. Technical and mixed interviews end with 1–3 short written SQL or pseudocode tasks.</p>
                     </div>
                     {!interview && (
                         <form onSubmit={startInterview} className="grid gap-4 sm:grid-cols-2">
@@ -226,7 +229,12 @@ const MockInterview = () => {
                             <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-100">
                                 <div className="h-full rounded-full bg-violet-600 transition-all" style={{ width: `${((interview.questions.filter((item) => item.answer).length) / interview.questions.length) * 100}%` }} />
                             </div>
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-violet-700">{currentQuestion.category}</p>
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">{currentQuestion.category}</p>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                                    {isMcqQuestion(currentQuestion) ? "Multiple choice" : "Written"}
+                                </span>
+                            </div>
                             <h2 className="mb-6 text-xl font-semibold text-slate-900">{currentQuestion.question}</h2>
                             {currentEvaluation ? (
                                 <div className="space-y-4">
@@ -235,6 +243,11 @@ const MockInterview = () => {
                                             <h3 className="font-semibold text-slate-900">Answer feedback</h3>
                                             <span className="font-bold text-violet-700">Practice score: {currentEvaluation.score}/100</span>
                                         </div>
+                                        {typeof currentEvaluation.isCorrect === "boolean" && (
+                                            <p className={`mt-2 text-sm font-medium ${currentEvaluation.isCorrect ? "text-emerald-700" : "text-rose-700"}`}>
+                                                {currentEvaluation.isCorrect ? "Correct." : `Incorrect. Correct option: ${currentEvaluation.correctAnswer}`}
+                                            </p>
+                                        )}
                                         {["technicalAccuracy", "completeness", "relevance", "clarity"].map((key) => (
                                             <p key={key} className="mt-2 text-sm text-slate-700"><strong className="capitalize">{key.replace(/([A-Z])/g, " $1")}:</strong> {currentEvaluation[key]}</p>
                                         ))}
@@ -257,10 +270,32 @@ const MockInterview = () => {
                                 </div>
                             ) : (
                                 <form onSubmit={submitAnswer} className="space-y-4">
-                                    <textarea className="min-h-44 w-full rounded-xl border border-slate-200 p-4 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Write your answer here…" maxLength={10000} required disabled={timerExpired} />
+                                    {isMcqQuestion(currentQuestion) ? (
+                                        <fieldset className="space-y-2" disabled={timerExpired}>
+                                            <legend className="sr-only">Choose one option</legend>
+                                            {currentQuestion.options.map((option, index) => (
+                                                <label key={option} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm ${answer === option ? "border-violet-400 bg-violet-50" : "border-slate-200 bg-white hover:border-violet-200"}`}>
+                                                    <input
+                                                        type="radio"
+                                                        className="mt-1"
+                                                        name="mock-interview-option"
+                                                        value={option}
+                                                        checked={answer === option}
+                                                        onChange={() => setAnswer(option)}
+                                                        required
+                                                    />
+                                                    <span><span className="mr-2 font-semibold text-violet-700">{String.fromCharCode(65 + index)}.</span>{option}</span>
+                                                </label>
+                                            ))}
+                                        </fieldset>
+                                    ) : (
+                                        <textarea className="min-h-44 w-full rounded-xl border border-slate-200 p-4 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Write a short SQL query, code snippet, or pseudocode…" maxLength={10000} required disabled={timerExpired} />
+                                    )}
                                     <div className="flex flex-wrap justify-between gap-3">
-                                        <Button type="button" variant="outline" onClick={startVoiceInput} disabled={timerExpired}>Use voice input</Button>
-                                        <div className="flex gap-2">
+                                        {!isMcqQuestion(currentQuestion) && (
+                                            <Button type="button" variant="outline" onClick={startVoiceInput} disabled={timerExpired}>Use voice input</Button>
+                                        )}
+                                        <div className={`flex gap-2 ${isMcqQuestion(currentQuestion) ? "ml-auto" : ""}`}>
                                             <Button type="button" variant="outline" onClick={finishInterview} disabled={loading}>End interview</Button>
                                             <Button disabled={loading || timerExpired || !answer.trim()}>{loading ? "Evaluating…" : "Submit answer"}</Button>
                                         </div>
@@ -290,7 +325,23 @@ const MockInterview = () => {
                                 {interview.questions.map((item, index) => (
                                     <article key={item._id} className="rounded-xl border border-slate-200 p-4">
                                         <p className="font-medium text-slate-900">{index + 1}. {item.question}</p>
-                                        <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{item.answer || "No answer submitted."}</p>
+                                        {isMcqQuestion(item) ? (
+                                            <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                                                {item.options.map((option, optionIndex) => {
+                                                    const selected = item.answer === option;
+                                                    const correct = item.evaluation?.correctAnswer === option;
+                                                    return (
+                                                        <li key={option} className={correct ? "font-medium text-emerald-700" : selected ? "font-medium text-slate-800" : ""}>
+                                                            {String.fromCharCode(65 + optionIndex)}. {option}
+                                                            {selected ? " — your answer" : ""}
+                                                            {correct ? " — correct" : ""}
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        ) : (
+                                            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{item.answer || "No answer submitted."}</p>
+                                        )}
                                         {item.evaluation && (
                                             <div className="mt-3 space-y-1 text-sm text-slate-600">
                                                 <p className="font-medium text-violet-700">Practice score: {item.evaluation.score}/100</p>
