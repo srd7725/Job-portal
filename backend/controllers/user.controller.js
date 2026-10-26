@@ -297,8 +297,8 @@ export const updateProfile = async (req, res) => {
 
 export const downloadProfileResume = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id).select("fullname role profile.resumeFileName profile.resumeOriginalName");
-        if (!user?.profile?.resumeFileName) {
+        const user = await User.findById(req.params.id).select("fullname role profile.resume profile.resumeFileName profile.resumeOriginalName");
+        if (!user?.profile?.resume) {
             return res.status(404).json({
                 message: "Resume not found.",
                 success: false
@@ -326,28 +326,64 @@ export const downloadProfileResume = async (req, res) => {
             }
         }
 
-        const resumePath = await getProfileResumePath(user.profile.resumeFileName);
-        if (!resumePath) {
-            return res.status(404).json({
-                message: "Resume file is no longer available.",
-                success: false
+        const downloadName = (user.profile.resumeOriginalName || "resume.pdf").replace(/[\r\n"]/g, "_");
+        if (user.profile.resumeFileName) {
+            const resumePath = await getProfileResumePath(user.profile.resumeFileName);
+            if (!resumePath) {
+                return res.status(404).json({
+                    message: "Resume file is no longer available.",
+                    success: false
+                });
+            }
+            return res.download(resumePath, downloadName, (error) => {
+                if (error) {
+                    console.error("Profile resume download failed:", error);
+                    if (!res.headersSent) {
+                        res.status(500).json({
+                            message: "Unable to download this resume right now.",
+                            success: false
+                        });
+                    }
+                }
             });
         }
 
-        const downloadName = (user.profile.resumeOriginalName || "resume.pdf").replace(/[\r\n"]/g, "_");
-        return res.download(resumePath, downloadName, (error) => {
-            if (error) {
-                console.error("Profile resume download failed:", error);
-                if (!res.headersSent) {
-                    res.status(500).json({
-                        message: "Unable to download this resume right now.",
-                        success: false
-                    });
-                }
-            }
+        const resumeUrl = new URL(user.profile.resume);
+        if (resumeUrl.protocol !== "https:" || resumeUrl.hostname !== "res.cloudinary.com") {
+            return res.status(404).json({ message: "Resume file is no longer available.", success: false });
+        }
+        const response = await fetch(resumeUrl, {
+            redirect: "error",
+            signal: AbortSignal.timeout(15000)
         });
+        if (!response.ok || !response.body) {
+            return res.status(502).json({ message: "Unable to retrieve your stored resume.", success: false });
+        }
+        const contentLength = Number(response.headers.get("content-length"));
+        if (Number.isFinite(contentLength) && contentLength > 10 * 1024 * 1024) {
+            return res.status(413).json({ message: "Stored resume exceeds the 10 MB limit.", success: false });
+        }
+        const chunks = [];
+        let totalSize = 0;
+        for await (const chunk of response.body) {
+            totalSize += chunk.length;
+            if (totalSize > 10 * 1024 * 1024) {
+                return res.status(413).json({ message: "Stored resume exceeds the 10 MB limit.", success: false });
+            }
+            chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+        if (buffer.subarray(0, 5).toString() !== "%PDF-") {
+            return res.status(422).json({ message: "Stored profile resume is not a valid PDF.", success: false });
+        }
+        res.type("application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="${downloadName}"`);
+        return res.send(buffer);
     } catch (error) {
         console.error("Profile resume download failed:", error);
+        if (error.name === "TimeoutError" || error.name === "AbortError") {
+            return res.status(504).json({ message: "Retrieving your stored resume timed out.", success: false });
+        }
         return res.status(500).json({
             message: "Unable to download this resume right now.",
             success: false

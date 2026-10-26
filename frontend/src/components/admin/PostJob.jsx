@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import Navbar from '../shared/Navbar'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
@@ -11,8 +11,6 @@ import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 
-const companyArray = [];
-
 const PostJob = () => {
     const [input, setInput] = useState({
         title: "",
@@ -23,8 +21,10 @@ const PostJob = () => {
         jobType: "",
         experience: "",
         position: 0,
-        companyId: ""
+        companyId: "",
+        maxPreferredEducationGapMonths: ""
     });
+    const [customGapYears, setCustomGapYears] = useState("");
     const [loading, setLoading]= useState(false);
     const navigate = useNavigate();
 
@@ -42,7 +42,13 @@ const PostJob = () => {
         e.preventDefault();
         try {
             setLoading(true);
-            const res = await axios.post(`${JOB_API_END_POINT}/post`, input,{
+            const payload = {
+                ...input,
+                maxPreferredEducationGapMonths: input.maxPreferredEducationGapMonths === "custom"
+                    ? (customGapYears === "" ? "" : Math.round(Number(customGapYears) * 12))
+                    : input.maxPreferredEducationGapMonths
+            };
+            const res = await axios.post(`${JOB_API_END_POINT}/post`, payload,{
                 headers:{
                     'Content-Type':'application/json'
                 },
@@ -148,6 +154,37 @@ const PostJob = () => {
                                 onChange={changeEventHandler}
                                 className="focus-visible:ring-offset-0 focus-visible:ring-0 my-1"
                             />
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Maximum preferred education gap (optional)</Label>
+                            <select
+                                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+                                name="maxPreferredEducationGapMonths"
+                                value={input.maxPreferredEducationGapMonths}
+                                onChange={changeEventHandler}
+                            >
+                                <option value="">No Preference</option>
+                                <option value="0">0 Years</option>
+                                <option value="12">1 Year</option>
+                                <option value="24">2 Years</option>
+                                <option value="36">3 Years</option>
+                                <option value="48">4 Years</option>
+                                <option value="60">5 Years</option>
+                                <option value="custom">Custom Duration</option>
+                            </select>
+                            <p className="text-xs text-slate-500">A review preference only; this never blocks an application or changes its status.</p>
+                            {input.maxPreferredEducationGapMonths === "custom" && (
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.08"
+                                    value={customGapYears}
+                                    onChange={(event) => setCustomGapYears(event.target.value)}
+                                    placeholder="Maximum gap in years"
+                                    required
+                                />
+                            )}
                         </div>
                         {
                             companies.length > 0 && (

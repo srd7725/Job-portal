@@ -15,6 +15,10 @@ import Applicants from './components/admin/Applicants'
 import ProtectedRoute from './components/admin/ProtectedRoute'
 import SuperAdminDashboard from './components/super-admin/SuperAdminDashboard'
 import SuperAdminRoute from './components/super-admin/SuperAdminRoute'
+import MockInterview from './components/MockInterview'
+import EducationTimeline from './components/EducationTimeline'
+import StudentRoute from './components/StudentRoute'
+import RecruiterScreening from './components/admin/RecruiterScreening'
 
 
 const appRouter = createBrowserRouter([
@@ -47,6 +51,14 @@ const appRouter = createBrowserRouter([
     element: <Profile />
   },
   {
+    path: "/student/mock-interview",
+    element: <StudentRoute><MockInterview /></StudentRoute>
+  },
+  {
+    path: "/student/education",
+    element: <StudentRoute><EducationTimeline /></StudentRoute>
+  },
+  {
     path: "/super-admin",
     element: <SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>
   },
@@ -74,6 +86,10 @@ const appRouter = createBrowserRouter([
   {
     path:"/admin/jobs/:id/applicants",
     element:<ProtectedRoute><Applicants/></ProtectedRoute> 
+  },
+  {
+    path:"/admin/ai-screening",
+    element:<ProtectedRoute><RecruiterScreening/></ProtectedRoute>
   },
 
 ])
