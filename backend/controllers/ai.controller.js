@@ -8,7 +8,12 @@ import { Application } from "../models/application.model.js";
 import { ResumeAnalysis } from "../models/resumeAnalysis.model.js";
 import { requestAiJson } from "../utils/aiProvider.js";
 import { requestGeminiJson } from "../utils/geminiProvider.js";
-import { serializeInterview, validateInterviewQuestions } from "../utils/interviewQuestions.js";
+import {
+    interviewQuestionMix,
+    isMultipleChoiceQuestion,
+    serializeInterview,
+    validateInterviewQuestions
+} from "../utils/interviewQuestions.js";
 import { extractPdfText, hashResume, sanitizeResumeTextForAi, scoreResumeAgainstJob } from "../utils/resumeAnalysis.js";
 
 const resumeDirectory = fileURLToPath(new URL("../private/resumes/", import.meta.url));
@@ -25,18 +30,21 @@ export const createInterview = async (req, res) => {
             return res.status(400).json({ message: "Please provide valid interview setup details.", success: false });
         }
         const count = Number(durationMinutes) === 10 ? 4 : Number(durationMinutes) === 20 ? 7 : 10;
+        const mix = interviewQuestionMix(interviewType, count);
         const previousInterviews = await Interview.find({ student: req.id, status: "completed" })
             .sort({ completedAt: -1 })
             .limit(3)
             .select("role interviewType report.strongTopics report.weakTopics");
         const result = await requestGeminiJson({
-            system: "Create practical multiple-choice interview questions. Return JSON {questions:[{question:string,category:string,options:[string,string,string,string],correctOption:number}]}. Every question must have exactly four distinct plausible options and exactly one correct option. correctOption is the zero-based index of the correct option. Do not add explanations or repeat questions from the supplied context. All questions must fit the specified role, interview type, and difficulty. Beginner questions test fundamentals, intermediate questions test application and trade-offs, and advanced questions test deeper reasoning and edge cases.",
+            system: "Create a mock interview as a multiple-choice test, with optional short written coding items only when requested. Return JSON {questions:[{question:string,category:string,questionType:'mcq'|'written',options:[string],correctOption:number|null}]}. Put every MCQ first and every written question last. Each MCQ must have questionType 'mcq', exactly four distinct plausible options, and correctOption as the zero-based index of the one correct option. Each written question must have questionType 'written', options [], and correctOption null, and must ask for a short SQL query, small code snippet, or simple pseudocode — not an essay. Match the role, interview type, and difficulty. Beginner questions test fundamentals, intermediate questions test application and trade-offs, and advanced questions test deeper reasoning and edge cases. Do not add explanations or repeat questions from the supplied context.",
             prompt: JSON.stringify({
                 role: role.trim(),
                 interviewType,
                 difficulty,
                 experienceLevel,
-                count,
+                count: mix.totalCount,
+                mcqCount: mix.mcqCount,
+                writtenCount: mix.writtenCount,
                 previousContext: previousInterviews.map((item) => ({
                     role: item.role,
                     interviewType: item.interviewType,
@@ -45,7 +53,7 @@ export const createInterview = async (req, res) => {
                 }))
             })
         });
-        const questions = validateInterviewQuestions(result, count);
+        const questions = validateInterviewQuestions(result, mix.totalCount, { writtenCount: mix.writtenCount });
         const interview = await Interview.create({
             student: req.id,
             role: role.trim(),
@@ -76,15 +84,17 @@ export const evaluateInterviewAnswer = async (req, res) => {
         if (!interview) return res.status(404).json({ message: "Interview not found.", success: false });
         if (interview.status !== "in_progress") return res.status(409).json({ message: "This interview is already complete.", success: false });
         const { questionId, answer } = req.body || {};
-        if (typeof answer !== "string" || answer.trim().length < 2 || answer.length > 10000) {
-            return res.status(400).json({ message: "Enter an answer between 2 and 10,000 characters.", success: false });
+        if (typeof answer !== "string" || answer.length > 10000) {
+            return res.status(400).json({ message: "Enter a valid answer.", success: false });
         }
         const question = interview.questions.id(questionId);
         if (!question || question.answer) return res.status(400).json({ message: "This question is not available for an answer.", success: false });
-        const isMultipleChoice = Array.isArray(question.options) && question.options.length === 4 &&
-            Number.isInteger(question.correctOption);
+        const isMultipleChoice = isMultipleChoiceQuestion(question);
         if (isMultipleChoice && !question.options.includes(answer.trim())) {
             return res.status(400).json({ message: "Select one of the available answer choices.", success: false });
+        }
+        if (!isMultipleChoice && answer.trim().length < 2) {
+            return res.status(400).json({ message: "Enter an answer between 2 and 10,000 characters.", success: false });
         }
         const result = await requestGeminiJson({
             system: isMultipleChoice
@@ -131,7 +141,10 @@ export const evaluateInterviewAnswer = async (req, res) => {
             )) {
             interview.questions.push({
                 question: result.followUpQuestion.trim().slice(0, 1000),
-                category: `Follow-up: ${question.category}`
+                category: `Follow-up: ${question.category}`,
+                questionType: "written",
+                options: [],
+                correctOption: null
             });
         }
         await interview.save();
@@ -154,7 +167,7 @@ export const completeInterview = async (req, res) => {
     try {
         const interview = await ownsInterview(req.params.id, req.id);
         if (!interview) return res.status(404).json({ message: "Interview not found.", success: false });
-        if (interview.status === "completed") return res.status(200).json({ interview, success: true });
+        if (interview.status === "completed") return res.status(200).json({ interview: serializeInterview(interview), success: true });
         const evaluated = interview.questions.filter((item) => item.evaluation);
         const result = await requestGeminiJson({
             system: "Create an evidence-based interview practice summary. Return JSON {overallSummary:string,strongTopics:string[],weakTopics:string[],preparationTopics:string[],recommendations:string[]}. Do not claim employability or invent evidence.",

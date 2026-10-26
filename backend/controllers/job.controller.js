@@ -72,7 +72,7 @@ export const updateEducationGapPreference = async (req, res) => {
         const job = await Job.findOneAndUpdate(
             { _id: req.params.id, created_by: req.id },
             { $set: { maxPreferredEducationGapMonths: preferredGap } },
-            { new: true, runValidators: true }
+            { returnDocument: "after", runValidators: true }
         );
         if (!job) return res.status(404).json({ message: "Job not found or not owned by this recruiter.", success: false });
         return res.status(200).json({ message: "Education gap preference updated.", job, success: true });

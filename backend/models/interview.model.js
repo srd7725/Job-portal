@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const interviewQuestionSchema = new mongoose.Schema({
     question: { type: String, required: true, maxlength: 1000 },
     category: { type: String, default: "General", maxlength: 100 },
+    questionType: { type: String, enum: ["mcq", "written"], default: "mcq" },
     options: { type: [String], default: [] },
     correctOption: { type: Number, min: 0, max: 3, default: null, select: false },
     answer: { type: String, default: "", maxlength: 10000 },

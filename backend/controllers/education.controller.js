@@ -2,44 +2,7 @@ import { EducationTimeline } from "../models/educationTimeline.model.js";
 import { requestAiJson } from "../utils/aiProvider.js";
 import { extractPdfText, sanitizeResumeTextForAi } from "../utils/resumeAnalysis.js";
 import { calculateEducationGaps } from "../utils/educationGap.js";
-
-const validEntry = (entry) => {
-    const start = entry.startDate ? new Date(entry.startDate) : null;
-    const end = entry.endDate ? new Date(entry.endDate) : null;
-    const validDateInput = (value) => {
-        if (!value) return true;
-        const match = typeof value === "string" && value.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/);
-        if (!match) return false;
-        const [, year, month, day] = match;
-        const monthNumber = Number(month);
-        if (monthNumber < 1 || monthNumber > 12) return false;
-        if (!day) return true;
-        const date = new Date(Date.UTC(Number(year), monthNumber - 1, Number(day)));
-        return date.getUTCFullYear() === Number(year) &&
-            date.getUTCMonth() === monthNumber - 1 &&
-            date.getUTCDate() === Number(day);
-    };
-    return typeof entry.qualification === "string" && entry.qualification.trim().length > 0 &&
-        entry.qualification.length <= 120 &&
-        (entry.institution === undefined || (typeof entry.institution === "string" && entry.institution.length <= 160)) &&
-        ["ongoing", "completed"].includes(entry.status) &&
-        validDateInput(entry.startDate) && validDateInput(entry.endDate) &&
-        (!start || Number.isFinite(start.getTime())) &&
-        (!end || Number.isFinite(end.getTime())) &&
-        (!start || !end || start <= end) &&
-        (entry.completionYear === undefined || entry.completionYear === null ||
-            (Number.isInteger(Number(entry.completionYear)) && Number(entry.completionYear) >= 1900 && Number(entry.completionYear) <= 2200));
-};
-
-const normalizeEducationDate = (value, isEndDate = false) => {
-    if (typeof value !== "string") return value || null;
-    const month = value.match(/^(\d{4})-(\d{2})$/);
-    if (!month) return value;
-    const [, year, monthNumber] = month;
-    if (!isEndDate) return `${year}-${monthNumber}-01`;
-    const endDay = new Date(Date.UTC(Number(year), Number(monthNumber), 0)).getUTCDate();
-    return `${year}-${monthNumber}-${String(endDay).padStart(2, "0")}`;
-};
+import { normalizeEducationDate, validEducationEntry } from "../utils/educationEntry.js";
 
 const serializeTimeline = (timeline) => ({
     ...timeline.toObject(),
@@ -69,7 +32,7 @@ export const saveEducationTimeline = async (req, res) => {
     const { entries, confirmed, gapExplanation } = req.body || {};
     if (!Array.isArray(entries) || entries.length > 20 || typeof confirmed !== "boolean" ||
         typeof gapExplanation !== "string" || gapExplanation.length > 1000 ||
-        entries.some((entry) => !entry || typeof entry !== "object" || !validEntry(entry))) {
+        entries.some((entry) => !validEducationEntry(entry))) {
         return res.status(400).json({ message: "Please check the education timeline details.", success: false });
     }
     try {
@@ -86,7 +49,7 @@ export const saveEducationTimeline = async (req, res) => {
                     gapExplanation
                 }
             },
-            { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+            { returnDocument: "after", upsert: true, runValidators: true, setDefaultsOnInsert: true }
         );
         return res.status(200).json({ timeline: serializeTimeline(timeline), success: true });
     } catch (error) {
@@ -103,7 +66,7 @@ export const analyzeEducationResume = async (req, res) => {
             prompt: sanitizeResumeTextForAi(resumeText).slice(0, 12000)
         });
         if (!Array.isArray(result?.entries) || result.entries.length > 20 ||
-            result.entries.some((entry) => !entry || !validEntry({
+            result.entries.some((entry) => !validEducationEntry({
                 ...entry,
                 qualification: entry.qualification,
                 institution: entry.institution || "",
